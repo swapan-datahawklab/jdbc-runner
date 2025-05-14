@@ -36,7 +36,7 @@ public class VaultSecretFetcher {
         String loginUrl = vaultBaseUrl + "/v1/auth/approle/login";
         String loginBody = String.format("{\"role_id\":\"%s\",\"secret_id\":\"%s\"}", roleId, secretId);
         // String maskedSecret = secretId == null ? "null" : (secretId.length() <= 4 ? "****" : secretId.substring(0, 2) + "****" + secretId.substring(secretId.length() - 2));
-        System.out.println("[DEBUG] [" + LocalDateTime.now() + "] Vault login context:");
+        System.out.println("[DEBUG] [" + "authenticateToVault " + LocalDateTime.now() + "] Vault login context:");
         System.out.println("  vaultBaseUrl: " + vaultBaseUrl);
         System.out.println("  loginUrl: " + loginUrl);
         System.out.println("  roleId: " + roleId);
@@ -51,27 +51,26 @@ public class VaultSecretFetcher {
                 
         try {
             HttpResponse<String> loginResponse = client.send(loginRequest, HttpResponse.BodyHandlers.ofString());
-            System.out.println("[DEBUG] [" + LocalDateTime.now() + "] Vault login response code: " + loginResponse.statusCode());
+            System.out.println("[DEBUG] [" + "authenticateToVault "  + "authenticateToVault "  + LocalDateTime.now() + "] Vault login response code: " + loginResponse.statusCode());
             if (loginResponse.statusCode() != 200) {
                 System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login failed for role_id: " + roleId + ", secretId: " + secretId + ", loginUrl: " + loginUrl);
                 System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login request body: " + loginBody);
                 System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login response body: " + loginResponse.body());
                 throw new VaultException("Vault login failed: " + loginResponse.body(), vaultBaseUrl, null);
             }
-            String clientToken = mapper.readTree(loginResponse.body())
-                .at("/auth/client_token")
-                .asText();
+            String clientToken = mapper.readTree(loginResponse.body()).at("/auth/client_token").asText();
             if (clientToken == null || clientToken.isEmpty()) {
-                System.out.println("[ERROR] [" + LocalDateTime.now() + "] No client token received from Vault. Response body: " + loginResponse.body());
+                System.out.println("[ERROR] [" + "authenticateToVault "+ LocalDateTime.now() + "] No client token received from Vault. Response body: " + loginResponse.body());
                 throw new VaultException("No client token received from Vault", vaultBaseUrl, null);
             }
+            System.out.println("[DEBUG] [" + "authenticateToVault "+ LocalDateTime.now() + "] Vault client token: " + clientToken);
             return clientToken;
         } catch (IOException e) {
-            System.out.println("[ERROR] [" + LocalDateTime.now() + "] IOException during Vault login: " + e.getMessage());
+            System.out.println("[ERROR] [" + "authenticateToVault " + LocalDateTime.now() + "] IOException during Vault login: " + e.getMessage());
             throw new VaultException("Failed to authenticate to Vault", e, vaultBaseUrl, null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            System.out.println("[ERROR] [" + LocalDateTime.now() + "] InterruptedException during Vault login: " + e.getMessage());
+            System.out.println("[ERROR] [" + "authenticateToVault "+ LocalDateTime.now() + "] InterruptedException during Vault login: " + e.getMessage());
             throw new VaultException("Interrupted while authenticating to Vault", e, vaultBaseUrl, null);
         }
     }
