@@ -9,9 +9,12 @@ import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.shelldemo.vault.exception.VaultException;
-import java.time.LocalDateTime;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import com.example.shelldemo.vault.util.LoggingUtils;
 
 public class VaultSecretFetcher {
+    private static final Logger logger = LogManager.getLogger(VaultSecretFetcher.class);
     private final HttpClient client;
     private final ObjectMapper mapper;
 
@@ -26,22 +29,18 @@ public class VaultSecretFetcher {
 
     public String fetchOraclePassword(String vaultBaseUrl, String roleId, String secretId, String dbName, String ait, String username) throws VaultException {
         String vaultUrl = String.format("https://%s", vaultBaseUrl);
-        System.out.println("[DEBUG] [" + LocalDateTime.now() + "] Vault base URL: " + vaultUrl);
+        LoggingUtils.logSensitiveInfo(logger, "Vault base URL: {}", vaultUrl);
         String clientToken = authenticateToVault(vaultUrl, roleId, secretId);
-        String secretResponse = fetchOracleSecret(vaultUrl, clientToken, dbName, ait,username);
+        String secretResponse = fetchOracleSecret(vaultUrl, clientToken, dbName, ait, username);
         return parsePasswordFromResponse(secretResponse);
     }
 
     private String authenticateToVault(String vaultBaseUrl, String roleId, String secretId) throws VaultException {
         String loginUrl = vaultBaseUrl + "/v1/auth/approle/login";
         String loginBody = String.format("{\"role_id\":\"%s\",\"secret_id\":\"%s\"}", roleId, secretId);
-        // String maskedSecret = secretId == null ? "null" : (secretId.length() <= 4 ? "****" : secretId.substring(0, 2) + "****" + secretId.substring(secretId.length() - 2));
-        System.out.println("[DEBUG] [" + "authenticateToVault " + LocalDateTime.now() + "] Vault login context:");
-        System.out.println("  vaultBaseUrl: " + vaultBaseUrl);
-        System.out.println("  loginUrl: " + loginUrl);
-        System.out.println("  roleId: " + roleId);
-        System.out.println("  secretId: " + secretId + " (length: " + (secretId == null ? 0 : secretId.length()) + ")");
-        System.out.println("  loginBody: " + loginBody);
+        
+        LoggingUtils.logSensitiveInfo(logger, "Vault login context: vaultBaseUrl={}, loginUrl={}, roleId={}, secretId length={}", 
+            vaultBaseUrl, loginUrl, roleId, (secretId == null ? 0 : secretId.length()));
         
         HttpRequest loginRequest = HttpRequest.newBuilder()
                 .uri(URI.create(loginUrl))
@@ -51,33 +50,33 @@ public class VaultSecretFetcher {
                 
         try {
             HttpResponse<String> loginResponse = client.send(loginRequest, HttpResponse.BodyHandlers.ofString());
-            System.out.println("[DEBUG] [" + "authenticateToVault "  + "authenticateToVault "  + LocalDateTime.now() + "] Vault login response code: " + loginResponse.statusCode());
+            logger.debug("Vault login response code: {}", loginResponse.statusCode());
             if (loginResponse.statusCode() != 200) {
-                System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login failed for role_id: " + roleId + ", secretId: " + secretId + ", loginUrl: " + loginUrl);
-                System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login request body: " + loginBody);
-                System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login response body: " + loginResponse.body());
+                logger.error("Vault login failed for role_id: {}, loginUrl: {}, response: {}", 
+                    roleId, loginUrl, loginResponse.body());
                 throw new VaultException("Vault login failed: " + loginResponse.body(), vaultBaseUrl, null);
             }
             String clientToken = mapper.readTree(loginResponse.body()).at("/auth/client_token").asText();
             if (clientToken == null || clientToken.isEmpty()) {
-                System.out.println("[ERROR] [" + "authenticateToVault "+ LocalDateTime.now() + "] No client token received from Vault. Response body: " + loginResponse.body());
+                logger.error("No client token received from Vault. Response body: {}", loginResponse.body());
                 throw new VaultException("No client token received from Vault", vaultBaseUrl, null);
             }
-            System.out.println("[DEBUG] [" + "authenticateToVault "+ LocalDateTime.now() + "] Vault client token: " + clientToken);
+            LoggingUtils.logSensitiveInfo(logger, "Vault client token: {}", clientToken);
             return clientToken;
         } catch (IOException e) {
-            System.out.println("[ERROR] [" + "authenticateToVault " + LocalDateTime.now() + "] IOException during Vault login: " + e.getMessage());
+            logger.error("IOException during Vault login: {}", e.getMessage(), e);
             throw new VaultException("Failed to authenticate to Vault", e, vaultBaseUrl, null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            System.out.println("[ERROR] [" + "authenticateToVault "+ LocalDateTime.now() + "] InterruptedException during Vault login: " + e.getMessage());
+            logger.error("InterruptedException during Vault login: {}", e.getMessage(), e);
             throw new VaultException("Interrupted while authenticating to Vault", e, vaultBaseUrl, null);
         }
     }
 
     private String fetchOracleSecret(String vaultBaseUrl, String clientToken, String dbName, String ait, String username) throws VaultException {
-        String secretPath = String.format("%s/v1/secrets/database/oracle/static-creds/%s-%s-%s", vaultBaseUrl, ait, dbName,username);
-        System.out.println("[DEBUG] [" + LocalDateTime.now() + "] Vault secret fetch URL: " + secretPath);
+        String secretPath = String.format("%s/v1/secrets/database/oracle/static-creds/%s-%s-%s", vaultBaseUrl, ait, dbName, username);
+        logger.debug("Vault secret fetch URL: {}", secretPath);
+        
         HttpRequest secretRequest = HttpRequest.newBuilder()
                 .uri(URI.create(secretPath))
                 .header("x-vault-token", clientToken)
@@ -85,18 +84,18 @@ public class VaultSecretFetcher {
                 .build();
         try {
             HttpResponse<String> secretResponse = client.send(secretRequest, HttpResponse.BodyHandlers.ofString());
-            System.out.println("[DEBUG] [" + LocalDateTime.now() + "] Vault secret fetch response code: " + secretResponse.statusCode());
+            logger.debug("Vault secret fetch response code: {}", secretResponse.statusCode());
             if (secretResponse.statusCode() != 200) {
-                System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault secret fetch failed. Response body: " + secretResponse.body());
+                logger.error("Vault secret fetch failed. Response body: {}", secretResponse.body());
                 throw new VaultException("Vault secret fetch failed: " + secretResponse.body(), vaultBaseUrl, secretPath);
             }
             return secretResponse.body();
         } catch (IOException e) {
-            System.out.println("[ERROR] [" + LocalDateTime.now() + "] IOException during Vault secret fetch: " + e.getMessage());
+            logger.error("IOException during Vault secret fetch: {}", e.getMessage(), e);
             throw new VaultException("Failed to fetch Vault secret", e, vaultBaseUrl, secretPath);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            System.out.println("[ERROR] [" + LocalDateTime.now() + "] InterruptedException during Vault secret fetch: " + e.getMessage());
+            logger.error("InterruptedException during Vault secret fetch: {}", e.getMessage(), e);
             throw new VaultException("Interrupted while fetching Vault secret", e, vaultBaseUrl, secretPath);
         }
     }

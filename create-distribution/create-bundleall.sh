@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # This script must be run in Git Bash on Windows. Archive creation uses PowerShell.
