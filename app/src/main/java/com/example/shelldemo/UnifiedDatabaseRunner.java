@@ -135,7 +135,7 @@ public class UnifiedDatabaseRunner implements Callable<Integer> {
 
         if (vaultSecretId != null) {
             try {
-                password = fetchPasswordFromVault(vaultSecretId);
+                password = fetchPasswordFromVault();
             } catch (VaultOperationException e) {
                 logger.error("Failed to fetch password from Vault: {}", e.getMessage());
                 return 2;
