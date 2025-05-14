@@ -100,16 +100,13 @@ public class UnifiedDatabaseRunner implements Callable<Integer> {
     private boolean showConnectString;
 
     @Option(names = {"--secret"}, description = "Fetch Oracle password from Vault using secret name (mutually exclusive with -p/--password)")
-    private String secretName;
+    private String vaultSecretId;
 
     @Option(names = {"--vault-url"}, description = "Vault base URL")
     private String vaultBaseUrl;
 
     @Option(names = {"--vault-role-id"}, description = "Vault role ID")
     private String vaultRoleId;
-
-    @Option(names = {"--vault-secret-id"}, description = "Vault secret ID")
-    private String vaultSecretId;
 
     @Option(names = {"--vault-ait"}, description = "Vault AIT")
     private String vaultAit;
@@ -118,7 +115,7 @@ public class UnifiedDatabaseRunner implements Callable<Integer> {
     public Integer call() throws DatabaseOperationException {
         logger.info("Starting database operation - type: {}, target: {}", dbType, target);
 
-        if (secretName != null && password != null && !password.trim().isEmpty()) {
+        if (vaultSecretId  != null && password != null && !password.trim().isEmpty()) {
             logger.error("--secret and -p/--password are mutually exclusive. Please specify only one.");
             return 2;
         }
@@ -136,16 +133,16 @@ public class UnifiedDatabaseRunner implements Callable<Integer> {
             logger.info("Loading custom JDBC driver from: {}", driverPath);
         }
 
-        if (secretName != null) {
+        if (vaultSecretId != null) {
             try {
-                password = fetchPasswordFromVault(secretName);
+                password = fetchPasswordFromVault(vaultSecretId);
             } catch (VaultOperationException e) {
                 logger.error("Failed to fetch password from Vault: {}", e.getMessage());
                 return 2;
             }
         }
 
-        if ((password == null || password.trim().isEmpty()) && secretName == null) {
+        if ((password == null || password.trim().isEmpty()) && vaultSecretId == null) {
             password = promptForPassword();
         }
 
@@ -252,36 +249,38 @@ public class UnifiedDatabaseRunner implements Callable<Integer> {
         }
     }
 
-    private String fetchPasswordFromVault(String secretName) throws VaultOperationException {
+    private String fetchPasswordFromVault() throws VaultOperationException {
         // Try command line args first, fall back to config
+       
         String baseUrl = vaultBaseUrl;
         String roleId = vaultRoleId;
         String secretId = vaultSecretId;
+        String dbName = database;
         String ait = vaultAit;
 
         // If any required parameter is missing, try to get from config
         if (baseUrl == null || roleId == null || secretId == null || ait == null) {
             var config = ConfigurationHolder.getInstance();
             var vaultConfig = config.getDatabaseConfig("vault");
-            if (baseUrl == null) baseUrl = (String) vaultConfig.get("baseUrl");
-            if (roleId == null) roleId = (String) vaultConfig.get("roleId");
-            if (secretId == null) secretId = (String) vaultConfig.get("secretId");
-            if (ait == null) ait = (String) vaultConfig.get("ait");
+            if (baseUrl == null) baseUrl = (String) vaultConfig.get("vault-base-url");
+            if (roleId == null) roleId = (String) vaultConfig.get("vault-role-id");
+            if (secretId == null) vaultSecretId = (String) vaultConfig.get("vault-secret-id");
+            if (ait == null) ait = (String) vaultConfig.get("vault-ait");
         }
 
         // Validate all parameters are present
-        if (baseUrl == null || roleId == null || secretId == null || ait == null) {
-            throw new VaultOperationException("Missing required Vault configuration parameters", null, secretName);
+        if (baseUrl == null || dbName == null || roleId == null || secretId == null || ait == null) {
+            throw new VaultOperationException("Missing required Vault configuration parameters", null, secretId);
         }
 
         try {
             return new VaultSecretFetcherBuilder()
                 .build()
                 .fetchOraclePassword(
-                    baseUrl, roleId, secretId, secretName, ait, username
+                    baseUrl, roleId, secretId, dbName, ait, username
                 );
         } catch (VaultException e) {
-            throw new VaultOperationException("Failed to fetch password from Vault: " + e.getMessage(), e, secretName);
+            throw new VaultOperationException("Failed to fetch password from Vault: " + e.getMessage(), e, secretId);
         }
     }
 
