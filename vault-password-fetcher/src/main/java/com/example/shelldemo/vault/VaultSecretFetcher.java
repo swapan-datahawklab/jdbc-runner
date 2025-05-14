@@ -35,7 +35,13 @@ public class VaultSecretFetcher {
     private String authenticateToVault(String vaultBaseUrl, String roleId, String secretId) throws VaultException {
         String loginUrl = vaultBaseUrl + "/v1/auth/approle/login";
         String loginBody = String.format("{\"role_id\":\"%s\",\"secret_id\":\"%s\"}", roleId, secretId);
-        System.out.println("[DEBUG] [" + LocalDateTime.now() + "] Vault login URL: " + loginUrl);
+        // String maskedSecret = secretId == null ? "null" : (secretId.length() <= 4 ? "****" : secretId.substring(0, 2) + "****" + secretId.substring(secretId.length() - 2));
+        System.out.println("[DEBUG] [" + LocalDateTime.now() + "] Vault login context:");
+        System.out.println("  vaultBaseUrl: " + vaultBaseUrl);
+        System.out.println("  loginUrl: " + loginUrl);
+        System.out.println("  roleId: " + roleId);
+        System.out.println("  secretId: " + secretId + " (length: " + (secretId == null ? 0 : secretId.length()) + ")");
+        System.out.println("  loginBody: " + loginBody);
         
         HttpRequest loginRequest = HttpRequest.newBuilder()
                 .uri(URI.create(loginUrl))
@@ -47,7 +53,9 @@ public class VaultSecretFetcher {
             HttpResponse<String> loginResponse = client.send(loginRequest, HttpResponse.BodyHandlers.ofString());
             System.out.println("[DEBUG] [" + LocalDateTime.now() + "] Vault login response code: " + loginResponse.statusCode());
             if (loginResponse.statusCode() != 200) {
-                System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login failed. Response body: " + loginResponse.body());
+                System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login failed for role_id: " + roleId + ", secretId: " + secretId + ", loginUrl: " + loginUrl);
+                System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login request body: " + loginBody);
+                System.out.println("[ERROR] [" + LocalDateTime.now() + "] Vault login response body: " + loginResponse.body());
                 throw new VaultException("Vault login failed: " + loginResponse.body(), vaultBaseUrl, null);
             }
             String clientToken = mapper.readTree(loginResponse.body())
