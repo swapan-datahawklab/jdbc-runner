@@ -31,8 +31,8 @@ public class VaultSecretFetcher {
         String vaultUrl = String.format("https://%s", vaultBaseUrl);
         LoggingUtils.logSensitiveInfo(logger, "Vault base URL: {}", vaultUrl);
         String clientToken = authenticateToVault(vaultUrl, roleId, secretId);
-        String secretResponse = fetchOracleSecret(vaultUrl, clientToken, dbName, ait, username);
-        return parsePasswordFromResponse(secretResponse);
+        String oraclPasswordResponse = fetchOraclePassword(vaultUrl, clientToken, dbName, ait, username);
+        return parsePasswordFromResponse(oraclPasswordResponse);
     }
 
     private String authenticateToVault(String vaultBaseUrl, String roleId, String secretId) throws VaultException {
@@ -73,30 +73,26 @@ public class VaultSecretFetcher {
         }
     }
 
-    private String fetchOracleSecret(String vaultBaseUrl, String clientToken, String dbName, String ait, String username) throws VaultException {
-        String secretPath = String.format("%s/v1/secrets/database/oracle/static-creds/%s-%s-%s", vaultBaseUrl, ait, dbName, username);
-        logger.debug("Vault secret fetch URL: {}", secretPath);
+    private String fetchOraclePassword(String vaultBaseUrl, String clientToken, String dbName, String ait, String username) throws VaultException {
+        String secretPath = String.format("%s/v1/secrets/database/oracle/static-creds/%s-%s-%s", vaultBaseUrl, ait, dbName, username).toLowerCase();
+        logger.debug("fetchOraclePassword Vault secret fetch URL: {}", secretPath);
         
-        HttpRequest secretRequest = HttpRequest.newBuilder()
-                .uri(URI.create(secretPath))
-                .header("x-vault-token", clientToken)
-                .GET()
-                .build();
+        HttpRequest secretRequest = HttpRequest.newBuilder().uri(URI.create(secretPath)).header("x-vault-token", clientToken).GET().build();
         try {
             HttpResponse<String> secretResponse = client.send(secretRequest, HttpResponse.BodyHandlers.ofString());
-            logger.debug("Vault secret fetch response code: {}", secretResponse.statusCode());
+            logger.debug("fetchOraclePassword: Vault secret fetch response code: {}", secretResponse.statusCode());
             if (secretResponse.statusCode() != 200) {
-                logger.error("Vault secret fetch failed. Response body: {}", secretResponse.body());
-                throw new VaultException("Vault secret fetch failed: " + secretResponse.body(), vaultBaseUrl, secretPath);
+                logger.error("fetchOraclePassword: Vault secret fetch failed. Response body: {}", secretResponse.body());
+                throw new VaultException("fetchOraclePassword:Vault secret fetch failed: " + secretResponse.body(), vaultBaseUrl, secretPath);
             }
             return secretResponse.body();
         } catch (IOException e) {
-            logger.error("IOException during Vault secret fetch: {}", e.getMessage(), e);
-            throw new VaultException("Failed to fetch Vault secret", e, vaultBaseUrl, secretPath);
+            logger.error("fetchOraclePassword: IOException during Vault secret fetch: {}", e.getMessage(), e);
+            throw new VaultException("fetchOraclePassword:Failed to fetch Vault secret", e, vaultBaseUrl, secretPath);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("InterruptedException during Vault secret fetch: {}", e.getMessage(), e);
-            throw new VaultException("Interrupted while fetching Vault secret", e, vaultBaseUrl, secretPath);
+            logger.error("fetchOraclePassword: InterruptedException during Vault secret fetch: {}", e.getMessage(), e);
+            throw new VaultException("fetchOraclePassword: Interrupted while fetching Vault secret", e, vaultBaseUrl, secretPath);
         }
     }
 
