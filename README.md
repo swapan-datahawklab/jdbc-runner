@@ -1432,5 +1432,15 @@ UnifiedDatabaseRunner (CLI/Entry point)
 ```
 
 ```bash
-sed -i 's/oid[123]puser\.example\.com/oid\1puser.whateveriwant.com/g; s/dc=example,dc=com/dc=whateveriwant,dc=com/g' dbscriptrunner-bundle-linux/resources/application.yaml
+sed -i -E 's/(oid[123]puser)\.example\.com/\1.anything.com/g; s/dc=example,dc=com/dc=anything,dc=com/g' dbscriptrunner-bundle-linux/resources/application.yaml
+
+# Linux (with backup)
+sed -i.bak -E 's/(oid[123]puser)\.example\.com/\1.anything.com/g; s/dc=example,dc=com/dc=anything,dc=com/g' dbscriptrunner-bundle-linux/resources/application.yaml
+
+# macOS (with backup)
+sed -i.bak -E 's/(oid[123]puser)\.example\.com/\\1.anything.com/g; s/dc=example,dc=com/dc=anything,dc=com/g' dbscriptrunner-bundle-linux/resources/application.yaml
+
+# restore
+mv dbscriptrunner-bundle-linux/resources/application.yaml.bak dbscriptrunner-bundle-linux/resources/application.yaml
+
 ```
