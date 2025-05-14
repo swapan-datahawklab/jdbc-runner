@@ -63,13 +63,6 @@ for arg in "$@"; do
     fi
 done
 
-# Prompt for password if not provided in args
-if ! echo "$@" | grep -q -- "-p" && ! echo "$@" | grep -q -- "--password"; then
-    read -s -p "Enter database password: " DB_PASSWORD
-    echo
-    set -- "$@" -p "$DB_PASSWORD"
-fi
-
 JAVA_OPTS="-Dlog4j.configurationFile=$LOG_CONFIG -Dapp.config=$APP_CONFIG"
 
 # If --driver-path is not present and a default exists, add it
@@ -77,4 +70,4 @@ if [ "$DRIVER_PATH_PRESENT" = false ] && [ -n "$DEFAULT_DRIVER_JAR" ]; then
     exec java $JAVA_OPTS -jar "$APP_JAR" "$@" --driver-path "$DEFAULT_DRIVER_JAR"
 else
     exec java $JAVA_OPTS -jar "$APP_JAR" "$@"
-fi 
+fi

@@ -54,4 +54,4 @@ if "%DRIVER_PATH_PRESENT%"=="false" if defined DEFAULT_DRIVER_JAR (
     %SCRIPT_DIR%runtime\bin\java %JAVA_OPTS% -jar "%APP_JAR%" %*
 )
 pause
-endlocal 
+endlocal

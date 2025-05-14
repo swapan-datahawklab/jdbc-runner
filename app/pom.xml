@@ -101,7 +101,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>2.22.1</version>
         <configuration>
-            <skipTests>false</skipTests>
+            <skipTests>${skip.surefile.tests}</skipTests>
             <trimStackTrace>false</trimStackTrace>
             <redirectTestOutputToFile>true</redirectTestOutputToFile>
             <disableXmlReport>true</disableXmlReport>

@@ -115,8 +115,7 @@ public class UnifiedDatabaseRunner implements Callable<Integer> {
     public Integer call() throws DatabaseOperationException {
         logger.info("Starting database operation - type: {}, target: {}", dbType, target);
 
-        if (vaultSecretId  != null && password != null && !password.trim().isEmpty()) {
-            logger.error("--secret and -p/--password are mutually exclusive. Please specify only one.");
+        if (!validatePasswordOptions()) {
             return 2;
         }
 
@@ -124,11 +123,38 @@ public class UnifiedDatabaseRunner implements Callable<Integer> {
             return showConnectString();
         }
 
-        if (target == null || target.trim().isEmpty()) {
-            logger.error("Target file or procedure name is required");
+        if (!validateTarget()) {
             return 2;
         }
 
+        if (!setupPassword()) {
+            return 2;
+        }
+
+        if (!validateOracleConnection()) {
+            return 2;
+        }
+
+        return runDatabaseOperation();
+    }
+
+    private boolean validatePasswordOptions() {
+        if (vaultSecretId != null && password != null && !password.trim().isEmpty()) {
+            logger.error("--secret and -p/--password are mutually exclusive. Please specify only one.");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateTarget() {
+        if (target == null || target.trim().isEmpty()) {
+            logger.error("Target file or procedure name is required");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean setupPassword() {
         if (driverPath != null) {
             logger.info("Loading custom JDBC driver from: {}", driverPath);
         }
@@ -138,33 +164,35 @@ public class UnifiedDatabaseRunner implements Callable<Integer> {
                 password = fetchPasswordFromVault();
             } catch (VaultOperationException e) {
                 logger.error("Failed to fetch password from Vault: {}", e.getMessage());
-                return 2;
+                return false;
             }
         }
 
         if ((password == null || password.trim().isEmpty()) && vaultSecretId == null) {
             password = promptForPassword();
         }
+        return true;
+    }
 
-        // Validate connection type for Oracle
-        if ("oracle".equalsIgnoreCase(dbType)) {
-            if (connectionType == null) {
-                connectionType = "thin-ldap"; // Default for Oracle
-            } else if (!connectionType.equalsIgnoreCase("thin") && 
-                      !connectionType.equalsIgnoreCase("thin-ldap")) {
-                logger.error("Invalid --connection-type: {}. Allowed values are 'thin' or 'thin-ldap'.", connectionType);
-                return 2;
-            }
-
-            // For thin connection type, host and port are required
-            if ("thin".equalsIgnoreCase(connectionType) && 
-                (host == null || host.trim().isEmpty())) {
-                logger.error("Host is required for connection type 'thin'");
-                return 2;
-            }
+    private boolean validateOracleConnection() {
+        if (!"oracle".equalsIgnoreCase(dbType)) {
+            return true;
         }
 
-        return runDatabaseOperation();
+        if (connectionType == null) {
+            connectionType = "thin-ldap"; // Default for Oracle
+        } else if (!connectionType.equalsIgnoreCase("thin") && 
+                  !connectionType.equalsIgnoreCase("thin-ldap")) {
+            logger.error("Invalid --connection-type: {}. Allowed values are 'thin' or 'thin-ldap'.", connectionType);
+            return false;
+        }
+
+        if ("thin".equalsIgnoreCase(connectionType) && 
+            (host == null || host.trim().isEmpty())) {
+            logger.error("Host is required for connection type 'thin'");
+            return false;
+        }
+        return true;
     }
 
     private int showConnectString() {

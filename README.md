@@ -1,5 +1,183 @@
 # Shell Demo Database Utility
 
+## Project Overview
+
+A powerful database utility tool that provides unified access to multiple database systems (Oracle, PostgreSQL, MySQL, SQL Server) with a command-line interface. The tool supports executing SQL scripts, stored procedures, and functions with comprehensive error handling and reporting.
+
+## Features
+
+- Multi-database support (Oracle, PostgreSQL, MySQL, SQL Server)
+- Command-line interface with Picocli
+- SQL script execution with transaction support
+- Stored procedure and function execution
+- Comprehensive error handling and reporting
+- CSV output support for query results
+- Vault integration for secure password management
+- Detailed logging with Log4j2
+
+## Prerequisites
+
+- Java 21 or higher
+- Maven 3.6+
+- Access to target database(s)
+
+## Project Structure
+
+```
+shdemmo/
+├── app/                    # Main application module
+├── vault-password-fetcher/ # Vault integration module
+└── create-distribution/    # Distribution bundle creation
+```
+
+## Building
+
+```bash
+# Build all modules
+mvn clean install
+
+# Build specific module
+mvn clean install -pl app
+```
+
+## Running
+
+```bash
+# Basic usage
+java -jar dbscriptrunner.jar --type oracle --host localhost --port 1521 --service-name XEPDB1
+
+# Execute SQL script
+java -jar dbscriptrunner.jar --type oracle --script path/to/script.sql
+
+# Execute with transaction support
+java -jar dbscriptrunner.jar --type oracle --script path/to/script.sql --transactional
+
+# Output to CSV
+java -jar dbscriptrunner.jar --type oracle --query "SELECT * FROM users" --csv-output results.csv
+```
+
+## Database Configuration
+
+### Oracle Database
+
+```yaml
+oracle:
+  defaultPort: 1521
+  templates:
+    jdbc:
+      default: "jdbc:oracle:thin:@//%s:%d/%s"
+    sql:
+      procedure: "{ call %s(%s) }"
+      validation:
+        plsql: "BEGIN %s END;"
+        sql: "EXPLAIN PLAN FOR %s"
+```
+
+### PostgreSQL
+
+```yaml
+postgresql:
+  defaultPort: 5432
+  templates:
+    jdbc:
+      default: "jdbc:postgresql://%s:%d/%s"
+    sql:
+      procedure: "{ call %s(%s) }"
+      validation:
+        plsql: "DO $$ BEGIN %s END $$;"
+        sql: "EXPLAIN %s"
+```
+
+### MySQL
+
+```yaml
+mysql:
+  defaultPort: 3306
+  templates:
+    jdbc:
+      default: "jdbc:mysql://%s:%d/%s"
+```
+
+### SQL Server
+
+```yaml
+sqlserver:
+  defaultPort: 1433
+  templates:
+    jdbc:
+      default: "jdbc:sqlserver://%s:%d;databaseName=%s"
+    sql:
+      procedure: "{ call %s(%s) }"
+```
+
+## Development
+
+### Key Dependencies
+
+- **Picocli**: Command-line interface
+- **Log4j2**: Logging framework
+- **Jackson**: YAML configuration processing
+- **OpenCSV**: CSV output support
+- **JUnit Jupiter**: Testing framework
+
+### Testing
+
+```bash
+# Run all tests
+mvn test
+
+# Run specific test class
+mvn test -Dtest=UnifiedDatabaseRunnerTest
+
+# Run specific test method
+mvn test -Dtest=UnifiedDatabaseRunnerTest#testHRSchemaConnection
+```
+
+### Logging
+
+The application uses Log4j2 for logging with two main components:
+
+1. Regular application logging (`logger`)
+2. Method-specific detailed logging (`methodLogger`)
+
+Log files are located in:
+- Regular logs: `logs/application.log`
+- Method debug logs: `logs/method-debug.log`
+
+## Distribution
+
+The project includes a distribution module that creates a complete bundle with:
+
+- Executable JAR
+- JDBC drivers for all supported databases
+- Run scripts for Unix and Windows
+- Configuration templates
+
+To create a distribution bundle:
+
+```bash
+mvn clean package -pl create-distribution
+```
+
+## Security
+
+- Database passwords can be fetched from Vault
+- Sensitive data is masked in logs
+- SSL/TLS support for database connections
+- Secure configuration handling
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `mvn test`
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
 ## Source Code Structure
 
 ```mermaid
@@ -225,9 +403,7 @@ mvn test -Dtest=SqlScriptParserTest#testParseMixedSqlAndPlsql -DforkCount=0
 Run multiple test classes:
 
 ```bash
-
 mvn test -Dtest=com.example.shelldemo.parser.UnifiedDatabaseRunnerTest -DforkCount=0
-
 
 mvn test -Dtest=SqlScriptParserTest,DatabaseConfigTest -DforkCount=0
 ```

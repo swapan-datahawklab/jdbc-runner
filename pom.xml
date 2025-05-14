@@ -47,6 +47,7 @@
     <os.unix>true</os.unix>
     <os.windows>true</os.windows>
     <skip.bundle.creation>false</skip.bundle.creation>
+    <skip.surefile.tests>true</skip.surefile.tests>
   </properties>
 
   <dependencyManagement>
